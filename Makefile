@@ -21,7 +21,7 @@ mjsynth-tfrecord:
 	cd src ; python mjsynth-tfrecord.py
 
 train:
-	cd src ; python train.py # use --help for options
+	cd src ; python train.py  --batch_size=256   # use --help for options
 
 monitor:
 	tensorboard --logdir=data/model --port=8008

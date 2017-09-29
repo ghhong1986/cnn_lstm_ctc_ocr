@@ -175,8 +175,8 @@ def _bytes_feature(values):
 def main(argv=None):
     
     gen_data('../data/images', 'annotation_train.txt', '../data/train/words')
-    gen_data('../data/images', 'annotation_val.txt',   '../data/val/words')
-    gen_data('../data/images', 'annotation_test.txt',  '../data/test/words')
+    # gen_data('../data/images', 'annotation_val.txt',   '../data/val/words')
+    # gen_data('../data/images', 'annotation_test.txt',  '../data/test/words')
 
 if __name__ == '__main__':
     main()

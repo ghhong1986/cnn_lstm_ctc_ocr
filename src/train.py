@@ -1,18 +1,5 @@
+#  coding=utf-8
 # CNN-LSTM-CTC-OCR
-# Copyright (C) 2017 Jerod Weinman
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import tensorflow as tf
@@ -55,7 +42,7 @@ tf.app.flags.DEFINE_string('input_device','/gpu:0',
 
 tf.app.flags.DEFINE_string('train_path','../data/train/',
                            """Base directory for training data""")
-tf.app.flags.DEFINE_string('filename_pattern','words-*',
+tf.app.flags.DEFINE_string('filename_pattern','digit-*',
                            """File pattern for input data""")
 tf.app.flags.DEFINE_integer('num_input_threads',4,
                           """Number of readers for input data""")
@@ -86,7 +73,9 @@ def _get_input():
     return image,width,label
 
 def _get_single_input():
-    """Set up and return image, label, and width tensors"""
+    """Set up and return image, label, and width tensors
+        暂时没有使用!!
+    """
 
     image,width,label,length,text,filename=mjsynth.threaded_input_pipeline(
         deps.get('records'), 
@@ -142,12 +131,14 @@ def _get_training(rnn_logits,label,sequence_length):
 
 def _get_session_config():
     """Setup session config to soften device placement"""
+    # 限制GPU资源
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.375)
 
     config=tf.ConfigProto(
         allow_soft_placement=True, 
-        log_device_placement=False)
+        log_device_placement=False,gpu_options=gpu_options)
 
-    return config
+    return config,gpu_options
 
 def _get_init_pretrained():
     """Return lambda for reading pretrained initial model"""
@@ -157,7 +148,7 @@ def _get_init_pretrained():
     
     saver_reader = tf.train.Saver(
         tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES))
-
+    # 需要恢复最近的保存变量
     ckpt_path=FLAGS.tune_from
 
     init_fn = lambda sess: saver_reader.restore(sess, ckpt_path)
@@ -178,12 +169,13 @@ def main(argv=None):
                                        mjsynth.num_classes() )
             train_op = _get_training(logits,label,sequence_length)
 
-        session_config = _get_session_config()
+        session_config,gpu_config = _get_session_config()
 
         summary_op = tf.summary.merge_all()
         init_op = tf.group( tf.global_variables_initializer(),
-                            tf.local_variables_initializer()) 
+                            tf.local_variables_initializer())
 
+        ## 这里使用分布式代码设计,其实可以不需要的.
         sv = tf.train.Supervisor(
             logdir=FLAGS.output,
             init_op=init_op,
@@ -192,13 +184,14 @@ def main(argv=None):
             init_fn=_get_init_pretrained(),
             save_model_secs=150)
 
-
         with sv.managed_session(config=session_config) as sess:
             step = sess.run(global_step)
             while step < FLAGS.max_num_steps:
                 if sv.should_stop():
                     break                    
                 [step_loss,step]=sess.run([train_op,global_step])
+
+                # 增加验证代码
             sv.saver.save( sess, os.path.join(FLAGS.output,'model.ckpt'),
                            global_step=global_step)
 

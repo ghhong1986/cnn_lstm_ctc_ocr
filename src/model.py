@@ -1,18 +1,5 @@
+# encoding=utf-8
 # CNN-LSTM-CTC-OCR
-# Copyright (C) 2017 Jerod Weinman
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import tensorflow as tf
 from tensorflow.contrib import learn
@@ -41,9 +28,10 @@ def conv_layer(bottom, params, training ):
         activation=tf.nn.relu
 
     kernel_initializer = tf.contrib.layers.variance_scaling_initializer()
+    # kernel_initializer = tf.truncated_normal_initializer(stddev=0.01)
     bias_initializer = tf.constant_initializer(value=0.0)
 
-    top = tf.layers.conv2d(bottom, 
+    top = tf.layers.conv2d(bottom,
                            filters=params[0],
                            kernel_size=params[1],
                            padding=params[2],
@@ -52,7 +40,7 @@ def conv_layer(bottom, params, training ):
                            bias_initializer=bias_initializer,
                            name=params[3])
     if batch_norm:
-        top = norm_layer( top, training, params[3]+'/batch_norm' )
+        top = norm_layer( top, training, params[3]+'/batch_norm' )  ##标准化,后续会加入池化层
         top = tf.nn.relu( top, name=params[3]+'/relu' )
 
     return top
@@ -91,21 +79,22 @@ def convnet_layers(inputs, widths, mode):
         pool6 = pool_layer( conv6, 1, 'valid', 'pool6')        # 3,13
         conv7 = conv_layer( pool6, layer_params[6], training ) # 3,13
         conv8 = conv_layer( conv7, layer_params[7], training ) # 3,13
-        pool8 = tf.layers.max_pooling2d( conv8, [3,1], [3,1], 
+        pool8 = tf.layers.max_pooling2d( conv8, [3,1], [3,1],
                                    padding='valid', name='pool8') # 1,13
-        features = tf.squeeze(pool8, axis=1, name='features') # squeeze row dim
+        features = tf.squeeze(pool8, axis=1, name='features') # squeeze row dim (每一层池化都会导致特征维度的减少)
 
         kernel_sizes = [ params[1] for params in layer_params]
 
         # Calculate resulting sequence length from original image widths
+        ### 迷魂阵,这段代码晕了
         conv1_trim = tf.constant( 2 * (kernel_sizes[0] // 2),
                                   dtype=tf.int32,
                                   name='conv1_trim')
         one = tf.constant(1, dtype=tf.int32, name='one')
         two = tf.constant(2, dtype=tf.int32, name='two')
-        after_conv1 = tf.subtract( widths, conv1_trim)
-        after_pool2 = tf.floor_div( after_conv1, two )
-        after_pool4 = tf.subtract(after_pool2, one)
+        after_conv1 = tf.subtract( widths, conv1_trim)  #  width - kernelsize
+        after_pool2 = tf.floor_div( after_conv1, two )  # divide 2
+        after_pool4 = tf.subtract(after_pool2, one)     # subtract 1
         sequence_length = tf.reshape(after_pool4,[-1], name='seq_len') # Vectorize
 
         return features,sequence_length
@@ -153,7 +142,7 @@ def rnn_layers(features, sequence_length, num_classes):
         rnn_sequence = tf.transpose(features, perm=[1, 0, 2], name='time_major')
         rnn1 = rnn_layer(rnn_sequence, sequence_length, rnn_size, 'bdrnn1')
         rnn2 = rnn_layer(rnn1, sequence_length, rnn_size, 'bdrnn2')
-        rnn_logits = tf.layers.dense( rnn2, num_classes+1, 
+        rnn_logits = tf.layers.dense( rnn2, num_classes+1,
                                       activation=logit_activation,
                                       kernel_initializer=weight_initializer,
                                       bias_initializer=bias_initializer,
