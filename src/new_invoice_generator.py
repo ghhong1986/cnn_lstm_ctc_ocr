@@ -13,30 +13,50 @@ from PIL import Image,ImageDraw,ImageFont,ImageFilter
 复杂类型表现在:字体,大小,字符间隔,  相对位置,背景,旋转,扭曲等   ,字体颜色的渐变性
 初始化时没有设置相关参数时,都使用默认值...
 '''
+# TODO 1. 修改文字绘图的面板大小的设置 2. 设置一个滤镜,对图片进行的模糊处理. 3.  图片可以进行上下拉升
 
 
+class Gradient():
 
-def gaussian(x, a, b, c, d=0):
-    return a * math.exp(-(x - b)**2 / (2 * c**2)) + d
+    @staticmethod
+    def channel(i, c, size, startFill, stopFill):
+        """calculate the value of a single color channel for a single pixel"""
+        return startFill[c] + int((i * 1.0 / size) * (stopFill[c] - startFill[c]))
 
-#
-baseIm = Image.new('RGB', (304, 62))
-ld = baseIm.load()
-for x in range(baseIm.size[0]):
-    r = int(gaussian(x, 158.8242, 201, 87.0739) + gaussian(x, 158.8242, 402, 87.0739))
-    g = int(gaussian(x, 129.9851, 157.7571, 108.0298) + gaussian(x, 200.6831, 399.4535, 143.6828))
-    b = int(gaussian(x, 231.3135, 206.4774, 201.5447) + gaussian(x, 17.1017, 395.8819, 39.3148))
-    for y in range(baseIm.size[1]):
-        ld[x, y] = (r, g, b)
+    @staticmethod
+    def color(i, size, startFill, stopFill):
+        """calculate the RGB value of a single pixel"""
+        return tuple([Gradient.channel(i, c, size, startFill, stopFill) for c in range(3)])
 
-def genGradientImage(width,high):
-    def randbox(maxsize):
-        x,y = random.randint(100,maxsize[0]-110),random.randint(0,maxsize[1]-5)
-        x2,y2 = random.randint(x,maxsize[0]-100),random.randint(y,maxsize[1]-1)
-        return (x,y,x2,y2)
-    tmpImg = baseIm.crop(randbox(baseIm.size))
-    # 可以稍许旋转
-    return tmpImg.resize((width,high))
+
+    def genImage(self,size, startFill, stopFill):
+        img =Image.new("RGBA",size)
+        width,hight= size
+        gradient = [Gradient.color(i, width, startFill, stopFill) for i in xrange(width)]
+        img.putdata(gradient*hight)
+        return img
+
+    def randColor(self):
+        '''
+        随机生成颜色
+        :param isEnd:
+        :return:
+        '''
+         # 灰色,黑色  ,蓝色
+        all = [(0, 0, 255), (0, 128, 255), (127, 127, 127), (0, 0, 0), (25, 25, 25)]
+        def randomColor(seed):
+            offset = [random.randint(-30, 30) for x in range(3)]
+            color = []
+            for s, o in zip(seed, offset):
+                s += o
+                color.append(min(max(s, 0), 255))
+            return tuple(color)
+        return randomColor(random.choice(all))
+
+    def genRandImage(self,size):
+        startColor = self.randColor()
+        stopColor = self.randColor()
+        return self.genImage(size,startColor,stopColor)
 
 
 fontConstNum= {'Palatino.ttc':3,'Mshtakan.ttc':3}
@@ -228,6 +248,32 @@ class PlateGenerator():
 
         return mask
 
+    def _paintFront2(self,text):
+        fname,idx = self._getFontName()
+        font = ImageFont.truetype(fname, self._getFontSize(),index=idx)
+
+        textsize = self.getTextImageSize(text,font)
+        # 好像没有缩放关系
+        imgsize = (400,200)
+        mask = Image.new("RGBA", imgsize)  #
+        startPos = [ (a-b)/2 for a,b in zip(imgsize,textsize)]
+        draw = ImageDraw.Draw(mask)
+        draw.text(tuple(startPos),text,font=font,fill=(255, 0, 0))
+        del draw
+
+        # 图片进行外围扩张 高度2~20  ,宽度:5~50
+        def extendSize(xrange=20,yrange=50):
+            xt = random.randint(5,min(yrange,startPos[1]))
+            yt = random.randint(2,min(xrange,startPos[0]))
+            return xt,yt
+        ltext = extendSize()
+        rbext = extendSize()
+        print 'lt',ltext,'rb',rbext
+        box = (startPos[0]-ltext[0],startPos[1]-ltext[1],
+               startPos[0]+textsize[0]+rbext[0],startPos[1]+textsize[1]+rbext[1])
+        return mask.crop(box)
+
+
     def rotateImage(self,img):
         # 旋转与不旋转5:5 ,
         randDegree = [-2,-1,1,2]
@@ -294,7 +340,7 @@ class PlateGenerator():
         if self._testFactor("FONT_GAP"):
             ntext = self.textWithgap(text)
 
-        mask = self._paintFront(ntext)
+        mask = self._paintFront2(ntext)
 
         if self._testFactor("ROTATE"):
             mask = self.rotateImage(mask)
@@ -304,7 +350,7 @@ class PlateGenerator():
         bg = self._getBackgroundImg()
         if self._testFactor("FADE"):
             width,high = mask.size
-            front = genGradientImage(width,high)
+            front = Gradient().genRandImage((width,high))
             img = self.blendBg(front,bg,mask)
         else:
 
@@ -315,7 +361,8 @@ class PlateGenerator():
         if includeVec:
             return img.resize(targetsize), text,vec
         else:
-            return img.resize(targetsize),text
+            return img.resize(targetsize,resample=Image.LANCZOS),text
+            # return img,text
 
 # for TEST
 
@@ -371,11 +418,14 @@ def resizeHeight31(path):
 
 
 if __name__ == '__main__':
-    defaultfacotr = ['RELA_POS','FONT',"FONT_SIZE"]  #"BACKGROUND","FONTCOLOR",'ROTATE',
+    defaultfacotr = ['RELA_POS','FONT',"ROTATE","FADE","BACKGROUND"]  #"BACKGROUND","FONTCOLOR",'ROTATE',"FONT_SIZE",
 
     # generateImages("type1","trainiAnaote.txt",(256,31),10,50)
     # resizeHeight31('fortest')
 
     generateProperImages('type1','t1.txt',(256,31),10,100,defaultfacotr)
 
+    # for i in range(29):
+    #     img = Gradient().genRandImage((300,30))
+    #     img.save("../img/gradient/%d.jpg"%i)
 
