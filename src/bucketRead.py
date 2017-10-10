@@ -94,14 +94,27 @@ def test_train_bucket():
 
 # test_train_bucket()
 
+tfpath= '../data/test/real-0.tfrecord'
+feature_map = {
+    'image/encoded': tf.FixedLenFeature([], dtype=tf.string,
+                                        default_value=''),
+    'image/labels': tf.VarLenFeature(dtype=tf.int64),
+    'image/width': tf.FixedLenFeature([1], dtype=tf.int64,
+                                      default_value=1),
+    'image/filename': tf.FixedLenFeature([], dtype=tf.string,
+                                         default_value=''),
+    'text/string': tf.FixedLenFeature([], dtype=tf.string,
+                                      default_value=''),
+    'text/length': tf.FixedLenFeature([1], dtype=tf.int64,
+                                      default_value=1)
+}
+
 def test_tf_batch_read():
+
     with tf.Session() as sess:
-        # Create a list of filenames and pass it to a queue
         filename_queue = tf.train.string_input_producer([tfpath], num_epochs=1)
-        # Define a reader and read the next record
         reader = tf.TFRecordReader()
         _, serialized_example = reader.read(filename_queue)
-        # Decode the record read by the reader
         features = tf.parse_single_example(serialized_example, features=feature_map)
 
         image = tf.image.decode_jpeg(features['image/encoded'], channels=1)  # gray
@@ -111,28 +124,80 @@ def test_tf_batch_read():
         text = features['text/string']
         filename = features['image/filename']
 
-        # print text
 
-        # tf.train.batch(label)
+        #
 
         init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
         sess.run(init_op)
-        # Create a coordinator and run all QueueRunner objects
+
+        '''
         coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(coord=coord)
-        for batch_index in range(20):
-            img, lbl = sess.run([image, text])
-            print lbl, img.shape
-            img = img.reshape((img.shape[0:2]))
-            pimg = Image.fromarray(img, "L")
-
-
-        # Stop the threads
-        coord.request_stop()
-
-        # Wait for threads to stop
+            coord.request_stop()
         coord.join(threads)
+        '''
+
+        # Create a coordinator and run all QueueRunner objects
+
+        # threads = tf.train.start_queue_runners(coord=coord)
+        threads = tf.train.start_queue_runners(sess=sess)
+
+        ### batch read
+        text,width =  tf.train.batch([text,width], 50)
+
+        rtext,rwdith = sess.run([text,width])
+        print '===='*3
+        print rwidth
+        print rtext
+
+        # for batch_index in range(20):
+        #     img, lbl = sess.run([image, text])
+        #     print lbl, img.shape
+        #     img = img.reshape((img.shape[0:2]))
+        #     pimg = Image.fromarray(img, "L")
 
         sess.close()
 
-test_bucket()
+# test_bucket()
+
+# test_tf_batch_read()
+
+def batch_reader(path):
+    file_queue = tf.train.string_input_producer([path])
+    reader = tf.TFRecordReader()
+    _,serialize_example = reader.read(file_queue)
+    features = tf.parse_single_example(serialize_example,feature_map)
+
+    length = features['text/length']
+    text = features['text/string']
+    fname=  features['image/filename']
+
+
+    init = tf.global_variables_initializer()
+    sess = tf.Session()
+    sess.run(init)
+
+
+
+    # for i in range(30):
+    #     vlength,vtext,vfname = sess.run([length,text,fname])
+    #     print vfname,vlength , vtext
+
+     # length,text,  bvlength, bvtext,
+
+    # bvfname = tf.train.shuffle_batch([fname],
+    #                                    batch_size=30, capacity=200,
+    #                                    min_after_dequeue=100)
+    bvfname = tf.train.batch([fname],50,capacity=100)
+
+    thread = tf.train.start_queue_runners(sess=sess)
+    vfname = sess.run([bvfname])
+    print vfname
+    for name in  vfname:
+        print name
+    # vlength,vtext,vfname = sess.run([bvlength,bvtext,bvfname])
+    # print vfname,vlength , vtext
+
+
+batch_reader(tfpath)
+
+

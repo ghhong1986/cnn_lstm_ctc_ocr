@@ -190,7 +190,9 @@ def main(argv=None):
                 if sv.should_stop():
                     break                    
                 [step_loss,step]=sess.run([train_op,global_step])
-
+                if step_loss < 1e-3:
+                    print 'loss %s ,===> to end'%step_loss
+                    break
                 # 增加验证代码
             sv.saver.save( sess, os.path.join(FLAGS.output,'model.ckpt'),
                            global_step=global_step)

@@ -224,7 +224,7 @@ def main(argv=None):
     # FACTORS = ['RELA_POS', 'FONT', 'FONT_SIZE', 'FONT_GAP', 'FADE', 'ROTATE', 'DISTORTION', 'TEXTLEN', 'BACKGROUND',
     #            'FONTCOLOR']
 
-    factor = ['RELA_POS','FONT']
+    factor = ['RELA_POS','FONT','LAYA']
     if args.rfontsize:
         factor.append("FONT_SIZE")
     if args.rlength:
@@ -251,4 +251,4 @@ def main(argv=None):
 
 if __name__ == '__main__':
     # main()
-    gen_data("/Users/honggh/Desktop/scale2", 'trainiAnaote.txt', '/Users/honggh/github/ocr_project/cnn_lstm_ctc_ocr/data/test/real', num_shards=1)
+    gen_data("/Users/honggh/Desktop/scale2", 'trainiAnaote.txt', '/Users/honggh/github/ocr_project/cnn_lstm_ctc_ocr/data/test/raw', num_shards=1)

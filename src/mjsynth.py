@@ -16,7 +16,7 @@
 
 import os
 import tensorflow as tf
-
+import tensorflow.contrib.training as training
 # The list (well, string) of valid output characters
 # If any example contains a character not found here, an error will result
 # from the calls to .index in the decoder below
@@ -60,7 +60,7 @@ def bucketed_input_pipeline(base_dir,file_patterns,
         keep_input = _get_input_filter(width, width_threshold,
                                        length, length_threshold)
         data_tuple = [image, label, length, text, filename]
-        width,data_tuple = tf.contrib.training.bucket_by_sequence_length(
+        width,data_tuple = training.bucket_by_sequence_length(
             input_length=width,
             tensors=data_tuple,
             bucket_boundaries=boundaries,
@@ -82,7 +82,7 @@ def threaded_input_pipeline(base_dir,file_patterns,
                             num_epochs=None):
 
     queue_capacity = num_threads*batch_size*2
-    # Allow a smaller final batch if we are going for a fixed number of epochs
+    # Allow a smaller final batch if we are going for a fixed number of epochs, this function for test
     final_batch = (num_epochs!=None) 
 
     data_queue = _get_data_queue(base_dir, file_patterns, 

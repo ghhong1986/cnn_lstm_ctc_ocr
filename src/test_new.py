@@ -43,7 +43,7 @@ def _get_input():
         FLAGS.test_path,
         str.split(FLAGS.filename_pattern,','),
         batch_size=FLAGS.batch_size,
-        num_threads=FLAGS.num_input_threads,
+        num_threads=1,  #FLAGS.num_input_threads,
         num_epochs=None, # Repeat for streaming
         batch_device=FLAGS.device, 
         preprocess_device=FLAGS.device )

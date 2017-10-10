@@ -72,7 +72,7 @@ bgImgNames = listBgImages('../fpimage')
 
 bgImgs = [ Image.open(name) for name in bgImgNames]
 
-FACTORS = ['RELA_POS','FONT','FONT_SIZE','FONT_GAP','FADE','ROTATE','DISTORTION','TEXTLEN','BACKGROUND','FONTCOLOR']
+FACTORS = ['RELA_POS','FONT','FONT_SIZE','FONT_GAP','FADE','ROTATE','DISTORTION','TEXTLEN','BACKGROUND','FONTCOLOR','LAYA']
 
 charSet =  [c for c in u'0123456789']  #日年月校验码
 
@@ -176,6 +176,11 @@ class PlateGenerator():
 
         self.charrepeatFun = randStr(maxLen,isFixeLen)
 
+    def checkProbablity(self,inProb):
+        ''' 以一定的概率发生事件 '''
+        prob = random.random()  # (0,1)
+        return  prob<inProb
+
     def setFactor(self,factors):
         self.factors = factors
 
@@ -254,7 +259,7 @@ class PlateGenerator():
 
         textsize = self.getTextImageSize(text,font)
         # 好像没有缩放关系
-        imgsize = (400,200)
+        imgsize = (800,150)
         mask = Image.new("RGBA", imgsize)  #
         startPos = [ (a-b)/2 for a,b in zip(imgsize,textsize)]
         draw = ImageDraw.Draw(mask)
@@ -268,7 +273,6 @@ class PlateGenerator():
             return xt,yt
         ltext = extendSize()
         rbext = extendSize()
-        print 'lt',ltext,'rb',rbext
         box = (startPos[0]-ltext[0],startPos[1]-ltext[1],
                startPos[0]+textsize[0]+rbext[0],startPos[1]+textsize[1]+rbext[1])
         return mask.crop(box)
@@ -277,14 +281,14 @@ class PlateGenerator():
     def rotateImage(self,img):
         # 旋转与不旋转5:5 ,
         randDegree = [-2,-1,1,2]
-        if random.randint(0,1)  == 1:
+        if self.checkProbablity(0.5):
             degree= random.choice(randDegree)
             img = img.rotate(degree,expand=True)  #
         return img
 
     def distortImage(self,img):
         # 图形扭曲参数
-        if random.randint(0,1) == 0:
+        if self.checkProbablity(0.5):
             params = [1 - float(random.randint(1, 2)) / 100,
                       0,
                       0,
@@ -332,6 +336,16 @@ class PlateGenerator():
         else:
             return colors[0]
 
+    def layaImage(self,img):
+        horVer = random.randint(0,1) == 0
+        value = random.uniform(-0.5,0.5)
+        print value
+        w,h = img.size
+        if horVer:
+            w = int(w*(1+value))
+        else:
+            h = int(h*(1+value))
+        return img.resize((w,h),resample=Image.LANCZOS)
 
     def generator(self,includeVec=False):
         text = self._genText()
@@ -355,6 +369,11 @@ class PlateGenerator():
         else:
 
             img = self.blendBg(self.randFontColor(), bg,mask)
+
+        ##图片进行水平或垂直反向拉升
+        if self._testFactor("LAYA") and self.checkProbablity(0.6):
+            img = self.layaImage(img)
+
         imgsize = img.size
         targetwidth = imgsize[0]* self.platesize[1]*1./imgsize[1]
         targetsize = (int(targetwidth),self.platesize[1])
@@ -418,12 +437,12 @@ def resizeHeight31(path):
 
 
 if __name__ == '__main__':
-    defaultfacotr = ['RELA_POS','FONT',"ROTATE","FADE","BACKGROUND"]  #"BACKGROUND","FONTCOLOR",'ROTATE',"FONT_SIZE",
+    defaultfacotr = ['RELA_POS','FONT',"ROTATE","FADE","BACKGROUND","LAYA"]  #"BACKGROUND","FONTCOLOR",'ROTATE',"FONT_SIZE",
 
     # generateImages("type1","trainiAnaote.txt",(256,31),10,50)
     # resizeHeight31('fortest')
 
-    generateProperImages('type1','t1.txt',(256,31),10,100,defaultfacotr)
+    generateProperImages('type1','t1.txt',(256,31),10,10,defaultfacotr)
 
     # for i in range(29):
     #     img = Gradient().genRandImage((300,30))
